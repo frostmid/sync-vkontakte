@@ -78,7 +78,10 @@ function normalize (entry, type) {
 var url = 'http://89.179.119.16:8001';
 
 
-(new Slave)
+(new Slave ({
+	title: 'vkontakte api',
+	version: '0.0.1'
+}))
 	.use ('urn:fos:sync:feature/29e5fa0b4e79c2412525bcdc576a92a2', function resolveToken (task) {
 		var token = task._prefetch.token,
 			emit = this.emitter (task),
