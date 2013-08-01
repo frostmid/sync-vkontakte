@@ -15,7 +15,10 @@
 		"fos-sync-slave": "git://github.com/lyxsus/fos-sync-slave.git",
 		"fos-request": "git://github.com/lyxsus/fos-request.git",
 		"vkontakte": "*",
-		"vow": "*"
+		"vow": "*",
+		"moment": "*",
+		"request": "*",
+		"lru-cache": "*"
 	},
 	"private": true
 }
