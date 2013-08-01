@@ -14,7 +14,7 @@
 		"socket.io-client": "*",
 		"fos-sync-slave": "git://github.com/lyxsus/fos-sync-slave.git",
 		"fos-request": "git://github.com/lyxsus/fos-request.git",
-		"vkontakte": "*",
+		"vkontakte": "git://github.com/lyxsus/node-vkontakte.git",
 		"vow": "*",
 		"moment": "*",
 		"request": "*",

@@ -63,7 +63,6 @@ var getVKontakte = function (token) {
 		var limitedRequest = _.rateLimit (request, API_RATE_WINDOW, true);
 		
 		api = vkontakte (limitedRequest, token.access_token);
-		setupRateLimits (api);
 		cache.set (key, api);
 	}
 
