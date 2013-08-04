@@ -6,6 +6,7 @@ var Slave = require ('fos-sync-slave'),
 	LRU = require ('lru-cache'),
 	API_RATE_WINDOW = (1000 * 0.5) + 1,
 	request = require ('request'),
+	Url = require ('url'),
 	cache = LRU ({
 		max: 100
 	});
@@ -86,15 +87,15 @@ function normalize (entry, type) {
 		}
 	}
 
-	switch (entry.post_type || type) {
+	switch (type || entry.post_type) {
+		
 		case 'post':
 		case 'reply':
 
-		case 'copy': //
-		case 'wall':
+		case 'copy':
 			return {
 				'url': 'http://vk.com/wall' + entry.from_id + '_' + entry.id,
-				'entry-type': 'urn:fos:sync:entry-type/cf6681b2f294c4a7a648ed2bf1ea0323',
+				'entry-type': 'urn:fos:sync:entry-type/dadd005a5055a5e9890112c44be64276',
 				'author': author,
 				'metrics': {
 					'comments': entry.comments.count,
@@ -106,24 +107,30 @@ function normalize (entry, type) {
 			};
 
 		case 'profile':
+			var avatar = entry.photo_50;
+
+			if (avatar == 'http://vk.com/images/deactivated_c.gif' || avatar == 'https://vk.com/images/camera_c.gif') {
+				avatar = null;
+			}
+
 			return {
-				'url': 'http://vk.com/id' + entry.uid,
+				'url': 'http://vk.com/id' + entry.id,
 				'entry-type': 'urn:fos:sync:entry-type/cf6681b2f294c4a7a648ed2bf1e9c2a8',
 				'first-name': entry.first_name,
 				'last-name': entry.last_name,
 				'nickname': entry.nickname,
-				'avatar': entry.photo_50,
+				'avatar': avatar,
 				// 'created_at': (new Date (entry.created_at)).getTime () / 1000,
 				'metrics': entry.counters
 			};
 
 		case 'group':
 			return {
-				'url': 'http://vk.com/club' + entry.gid,
+				'url': 'http://vk.com/club' + entry.id,
 				'entry-type': 'urn:fos:sync:entry-type/1f1d48152476612c3d5931cb927574a7',
 				'title': entry.name,
 				'nickname': entry.screen_name,
-				'avatar': entry.photo
+				'avatar': entry.photo_50
 			};
 
 		case 'topic':
@@ -132,7 +139,6 @@ function normalize (entry, type) {
 				'entry-type': 'urn:fos:sync:entry-type/5ba5d4d5335fa863936b2a2c46e122cc',
 				'author': entry.created_by,
 				'title': entry.title,
-				'nickname': entry.screen_name,
 				'metrics': {
 					'comments': entry.comments
 				},
@@ -144,21 +150,22 @@ function normalize (entry, type) {
 				'url': 'http://vk.com/topic' + (entry.group_id * -1) + '_' + entry.topic_id + '?post=' + entry.id,
 				'entry-type': 'urn:fos:sync:entry-type/5ba5d4d5335fa863936b2a2c46eaec60',
 				'author': author,
-				'nickname': entry.screen_name,
+				'ancestor': 'http://vk.com/topic' + (entry.group_id * -1) + '_' + entry.topic_id,
 				'created_at': entry.date,
 				'metrics': {
 					'likes': entry.likes.count
-				}
+				},
+				'content': entry.text
 			};
 
 		case 'wall_post':
-		
 			return {
-				'url': 'http://vk.com/wall' + entry.from_id + '_' + entry.id,
+				'url': 'http://vk.com/wall' + entry.owner_id + '_' + entry.post_id + (entry.reply_id ? '?reply=' + entry.reply_id : ''),
 				'entry-type': 'urn:fos:sync:entry-type/dadd005a5055a5e9890112c44be64276',
+				'ancestor': 'http://vk.com/wall' + entry.owner_id + (entry.reply_id ? '_' + entry.post_id : ''),
 				'author': author,
 				'metrics': {
-					'likes': entry.likes.count,
+					'likes': entry.likes ? entry.likes.count : null,
 				},
 				'content': entry.text,
 				'created_at': entry.date
@@ -174,58 +181,234 @@ function normalize (entry, type) {
 	}
 }
 
-function getComments(vk, emit, object) {
-	var promise = Promises.promise ();
-		params = {need_likes: 1, count: 100},
+function getComments(vk, emit, object, type) {
+	var params = {need_likes: 1, count: 100},
 		method = '';
 
-	switch (object.type)
+	switch (type)
 	{
-		case 'topic':
+		case 'topic_post':
 			method = 'board.getComments';
 			params.group_id = object.group_id;
 			params.topic_id = object.id;
 			break;
 
-		case 'wall':
+		case 'wall_post':
 			method = 'wall.getComments';
 			params.owner_id = object.owner_id;
 			params.post_id = object.id;
 			break;
-
+ 
 		default:
 			// if uid then user else
 			console.log (object);
-			return new Error ('Not implemented ' + object.type);
+			return new Error ('Not implemented ' + type);
 
 	}
 
-	vk(method, params, function (error, results) {
+	return iterate (vk, method, params, function (row) {
+		return true;
+	}, function (error, row) {
 		if (error) {
-				promise.reject (error);
+			promise.reject (error);
+			return;
+		}
+
+		switch (type) {
+			case 'topic_post':
+				row.group_id = params.group_id;
+				row.topic_id = params.topic_id;
+				break;
+
+			case 'wall_post':
+				row.post_id = params.post_id;
+				row.owner_id = params.owner_id;
+				row.reply_id = row.id;
+				break;
+		}
+
+		var entry = normalize (row, type);
+
+		if (entry) {
+			return emit (entry);
+		}
+	});
+}
+
+function iterate (vk, method, params, filter, callback) {
+	var promise = Promises.promise();
+
+	params.offset = params.offset || 0;
+	params.limit = params.limit || 100;
+
+	function fetch () {
+		vk (method, params, function (error, response) {
+			if (error) {
+				promise.reject(error)
+				//callback (error);
+				return;
+			};
+
+			var stop = false,
+				rows = response.items,
+				total = response.count;
+
+			if (rows.length == 0) {
+				promise.fulfill();
 				return;
 			}
 
-			Promises.all (
-				_.map (results, function (data) {
-					if (typeof data == 'object') {
-						var entry = normalize (data, object.type + '_post');
+			for (var i = 0, row; i < rows.length; i++) {
+				row = rows [i];
+				if (filter (row)) {
+					callback (null, row);
+				} else {
+					promise.fulfill();
+					stop = true;
+					break;
+				}
+			}
 
-						if (entry) {
-							return emit (entry);
-						}
-						
-					}
-				})
-			)
-				.then (_.bind (promise.fulfill, promise))
-				.fail (_.bind (promise.reject, promise))
-				.done ();
-	});
+			if (!stop) {
+				params.offset += params.limit;
+
+				fetch ();
+			}
+		});
+	}
+
+	fetch ();
 
 	return promise;
 }
 
+
+function get_user (task) {
+	var token = task._prefetch.token,
+		emit = this.emitter (task),
+		vk = getVKontakte (token),
+		promise = Promises.promise (),
+		user_id = task.url.match (/\/id(\d+)/) [1];
+
+	vk ('users.get', {
+		user_ids: user_id,
+		fields: 'nickname,screen_name,sex,bdate,city,country,timezone,photo_50,photo_100,photo_200_orig,has_mobile,contacts,education,online,counters,relation,last_seen,status,can_write_private_message,can_see_all_posts,can_post,universities,schools'
+	}, function (error, results) {
+		if (error) {
+			promise.reject (error);
+			return null;
+		}
+
+		var response = results [0];
+
+		if (response.deactivated) {
+			promise.reject ('User deactivated');
+			return null;	
+		}
+
+		var entry = normalize (response, 'profile');
+
+		Promises.when (emit (entry))
+			.then (_.bind (promise.fulfill, promise))
+			.fail (_.bind (promise.reject, promise))
+			.done ();
+	});
+
+	return promise;
+};
+
+function get_group (task) {
+	var token = task._prefetch.token,
+		emit = this.emitter (task),
+		vk = getVKontakte (token),
+		promise = Promises.promise (),
+		group_id = task.url.match (/\/club(\d+)/) [1];
+
+	vk ('groups.getById', {
+		group_id: group_id,
+		fields: 'city,country,place,description,wiki_page,members_count,counters,start_date,end_date,can_post,can_see_all_posts,activity,status,contacts,links,fixed_post,verified,site'
+	}, function (error, results) {
+		if (error) {
+			promise.reject (error);
+			return null;
+		}
+
+		var entry = normalize (results [0], 'group');
+
+		Promises.when (emit (entry))
+			.then (_.bind (promise.fulfill, promise))
+			.fail (_.bind (promise.reject, promise))
+			.done ();
+	});
+
+	return promise;
+};
+
+function get_wall (task) {
+	var token = task._prefetch.token,
+		emit = this.emitter (task),
+		vk = getVKontakte (token);
+
+	if (tmp = task.url.match (/\/id(\d+)/)) {
+		owner_id = tmp [1];
+	} else if (tmp = task.url.match (/\/club(\d+)/)) {
+		owner_id = (tmp [1] * -1);
+	} else if (tmp = task.url.match (/\/wall(|\-)(\d+)/)) {
+		owner_id = tmp [1] + tmp [2];
+	}
+
+	return iterate (vk, 'wall.get', {owner_id: owner_id}, function (row) {
+		return true;
+	}, function (error, row) {
+		if (error) {
+			promise.reject (error);
+			return;
+		}
+
+		if (typeof row == 'object') {
+			row.owner_id = owner_id;
+			row.post_id = row.id;
+
+			if (entry = normalize (row, 'wall_post')) {
+				emit (entry);
+			}
+
+			return getComments(vk, emit, row, 'wall_post');
+		}
+	});
+};
+
+function get_topics (task) {
+	var token = task._prefetch.token,
+		emit = this.emitter (task),
+		vk = getVKontakte (token);
+
+	if (tmp = task.url.match (/\/club(\d+)/)) {
+		group_id = tmp [1];
+	} else if (tmp = task.url.match (/\/topic-(\d+)/)) {
+		group_id = tmp [1];
+	}
+
+	return iterate (vk, 'board.getTopics', {group_id: group_id}, function (row) {
+		return true;
+	}, function (error, row) {
+		if (error) {
+			promise.reject (error);
+			return;
+		}
+
+		if (typeof row == 'object') {
+			row.type = 'topic';
+			row.group_id = group_id;
+
+			if (entry = normalize (row, 'topic')) {
+				emit (entry);
+			}
+
+			return getComments(vk, emit, row, 'topic_post');
+		}
+	});
+};
 
 var url = 'http://89.179.119.16:8001';
 
@@ -265,150 +448,57 @@ var url = 'http://89.179.119.16:8001';
 		var token = task._prefetch.token,
 			emit = this.emitter (task),
 			vk = getVKontakte (token),
-			promise = Promises.promise ();
+			keywords = Url.parse (task.url, true).query.q;
 
-		vk ('newsfeed.search', {q: task.keywords}, function (error, results) {
+			console.log(keywords);
+
+		return iterate (vk, 'newsfeed.search', {q: keywords, count: 10}, function (row) {
+			return true;
+		}, function (error, row) {
 			if (error) {
 				promise.reject (error);
 				return;
 			}
 
-			Promises.all (
-				_.map (results, function (data) {
-					if (typeof data == 'object') {
-						var entry = normalize (data);
-						if (entry) {
-							return emit (entry);
-						}
-						
-					}
-				})
-			)
-				.then (_.bind (promise.fulfill, promise))
-				.fail (_.bind (promise.reject, promise))
-				.done ();
-		});
+			if (typeof row == 'object') {
+				
+				if (entry = normalize (row)) {
+					return emit (entry);
+				}
 
-		return promise;
-	})
-
-	.use ('urn:fos:sync:feature/e9b93bf34cc142491627dd19c99b9f44', function get_wall (task) {
-		var token = task._prefetch.token,
-			emit = this.emitter (task),
-			vk = getVKontakte (token),
-			promise = Promises.promise (),
-			group_id = task.url.match (/\/club(\d+)/) [1];
-
-		vk ('wall.get', {owner_id: (group_id * -1), count: 10}, function (error, results) {
-			if (error) {
-				promise.reject (error);
-				return;
+				//return getComments(vk, emit, row);
 			}
-
-			Promises.all (
-				_.map (results, function (data) {
-					if (typeof data == 'object') {
-						if (entry = normalize (data)) {
-							emit (entry);
-						}
-
-						data.type = 'wall';
-						data.owner_id = (group_id * -1);
-						return getComments(vk, emit, data);
-						
-					}
-				})
-			)
-				.then (_.bind (promise.fulfill, promise))
-				.fail (_.bind (promise.reject, promise))
-				.done ();
 		});
-
-		return promise;
 	})
 
-	.use ('urn:fos:sync:feature/c83d95fab6adfea73e3fe793de43ba90', function get_topics (task) {
-		var token = task._prefetch.token,
-			emit = this.emitter (task),
-			vk = getVKontakte (token),
-			promise = Promises.promise (),
-			group_id = task.url.match (/\/club(\d+)/) [1];
+	.use ('urn:fos:sync:feature/e9b93bf34cc142491627dd19c99b9f44', get_wall)
 
-		vk ('board.getTopics', {owner_id: group_id, count: 100}, function (error, results) {
-			if (error) {
-				promise.reject (error);
-				return;
-			}
-
-			Promises.all (
-				_.map (results, function (data) {
-					if (typeof data == 'object') {
-						var entry = normalize (data, 'topic');
-
-						if (entry) {
-							entry.group_id = group_id;
-							return emit (entry);
-						}
-						
-					}
-				})
-			)
-				.then (_.bind (promise.fulfill, promise))
-				.fail (_.bind (promise.reject, promise))
-				.done ();
-		});
-
-		return promise;
-	})
+	.use ('urn:fos:sync:feature/c83d95fab6adfea73e3fe793de43ba90', get_topics)
 
 	.use ('urn:fos:sync:feature/1f1d48152476612c3d5931cb924c4aa6', function explain (task) {
-		var token = task._prefetch.token,
-			emit = this.emitter (task),
-			vk = getVKontakte (token),
-			promise = Promises.promise (),
-			tmp;
+		var promise = Promises.promise ();
 
-		if (tmp = task.url.match (/\/id(\d+)/)) {
-			var user_id = tmp [1];
+		if (task.url.match (/\/id(\d+)/)) {
+			return get_user.call(this, task);
+		} else if (task.url.match (/\/club(\d+)/)) {
+			return get_group.call(this, task);
+		} else if (tmp = task.url.match (/\/wall(|\-)(\d+)\_(\d+)/)) {
+			var token = task._prefetch.token,
+				emit = this.emitter (task),
+				vk = getVKontakte (token);
 
-			vk ('users.get', {
-				user_ids: user_id,
-				fields: 'nickname,screen_name,sex,bdate,city,country,timezone,photo_50,photo_100,photo_200_orig,has_mobile,contacts,education,online,counters,relation,last_seen,status,can_write_private_message,can_see_all_posts,can_post,universities,schools'
-			}, function (error, results) {
-				if (error) {
-					promise.reject (error);
-					return null;
-				}
+			return getComments.call(this, task, {owner_id: tmp [1] + tmp [2], post_id: tmp [3]}, 'wall_post');
+		} else if (task.url.match (/\/wall(|\-)(\d+)/)) {
+			return get_wall.call (this, task);
+		} else if (tmp = task.url.match (/\/topic\-(\d+)\_(\d+)/)) {
+			var token = task._prefetch.token,
+				emit = this.emitter (task),
+				vk = getVKontakte (token);
 
-				var entry = normalize (results [0], 'profile');
-
-				Promises.when (emit (entry))
-					.then (_.bind (promise.fulfill, promise))
-					.fail (_.bind (promise.reject, promise))
-					.done ();
-			});
-		} else if (tmp = task.url.match (/\/club(\d+)/)) {
-			var gid = tmp [1];
-
-			vk ('groups.getById', {
-				gid: gid
-			}, function (error, results) {
-				if (error) {
-					promise.reject (error);
-					return null;
-				}
-
-				var entry = normalize (results [0], 'group');
-
-				Promises.when (emit (entry))
-					.then (_.bind (promise.fulfill, promise))
-					.fail (_.bind (promise.reject, promise))
-					.done ();
-			});
+			return getComments.call(this, task, {group_id: tmp [1], topic_id: tmp [2]}, 'topic_post');
 		} else {
 			promise.reject ('Unkown url ' + task.url);
 		}
-		
 
 		return promise;
 	})
