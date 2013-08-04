@@ -448,7 +448,8 @@ var url = 'http://89.179.119.16:8001';
 		var token = task._prefetch.token,
 			emit = this.emitter (task),
 			vk = getVKontakte (token),
-			keywords = Url.parse (task.url, true).query.q;
+			query = Url.parse (task.url, true).query,
+			keywords = query.q || query ['c[q]'];
 
 			console.log(keywords);
 
