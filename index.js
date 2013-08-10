@@ -488,9 +488,18 @@ function getTopics (vk, group_id, topic_id, filter, callback) {
 
 var url = 'http://89.179.119.16:8001';
 
-(new Slave ({
+(function restart () {
+	_.delay (function () {
+		process.exit ();
+	}, 2500);
+}
+
+
+new Slave ({
 	title: 'vkontakte api',
 	version: '0.0.1'
+}, {
+	restart: restart
 }))
 	.use ('urn:fos:sync:feature/29e5fa0b4e79c2412525bcdc576a92a2', function resolveToken (task) {
 		var token = task._prefetch.token,
