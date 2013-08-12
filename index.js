@@ -152,10 +152,15 @@ function getGroupContacts (vk, group_id, callback) {
 
 function getUserInfo (vk, user_id, callback) {
 	//TODO: add caching
-	return vk ('users.get', {
-		user_ids: user_id,
+	var params = {
 		fields: 'nickname,screen_name,sex,bdate,city,country,timezone,photo_50,photo_100,photo_200_orig,has_mobile,contacts,education,online,counters,relation,last_seen,status,can_write_private_message,can_see_all_posts,can_post,universities,schools'
-	}, function (error, result) {
+	};
+
+	if (user_id) {
+		params.user_ids = user_id;
+	}
+
+	return vk ('users.get', params, function (error, result) {
 		if(error) {
 			callback(error);
 			return null;
@@ -482,6 +487,10 @@ function restart () {
 			}
 
 			var entry = normalize (result, 'profile', vk);
+
+			entry.tokens = [token._id];
+
+			console.log (entry);
 
 			Promises.when (emit (entry))
 				.then (_.bind (promise.fulfill, promise))
@@ -855,3 +864,5 @@ function restart () {
 	})
 
 	.connect (SocketIO, url);
+
+
