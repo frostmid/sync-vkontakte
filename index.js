@@ -490,8 +490,6 @@ function restart () {
 
 			entry.tokens = [token._id];
 
-			console.log (entry);
-
 			Promises.when (emit (entry))
 				.then (_.bind (promise.fulfill, promise))
 				.fail (_.bind (promise.reject, promise))
