@@ -403,7 +403,7 @@ function preNormalize (entry, type) {
 
 		case 'profile':
 			var avatar = entry.photo_50;
-				//birthdate = moment(entry.bdate, ['DD.MM.YYYY', 'D.MM.YYYY', 'DD.M.YYYY', 'D.M.YYYY']);
+				birthdate = entry.bdate ? entry.bdate.match(/(\d+)\.(\d+)(\.|)(\d+|)/) : null;
 
 			if (avatar == 'http://vk.com/images/deactivated_c.gif' || avatar == 'https://vk.com/images/camera_c.gif') {
 				avatar = null;
@@ -417,7 +417,11 @@ function preNormalize (entry, type) {
 				'nickname': entry.nickname,
 				'avatar': avatar,
 				'metrics': entry.counters,
-				'birth-date': entry.bdate,//birthdate.isValid() ? birthdate.unix() * 1000 : null,
+				'birth': {
+					'day': (birthdate && birthdate [1]) ? birthdate [1] : null,
+					'month': (birthdate && birthdate [2]) ? birthdate [2] : null,
+					'year': (birthdate && birthdate [4]) ? birthdate [4] : null
+				},
 				'phone': entry.has_mobile ? entry.mobile_phone : null,
 				'city': entry.city
 			};
@@ -654,7 +658,7 @@ function restart () {
 				}
 
 				return getTopics(vk, group_id, post_id, function (row) {
-					return Boolean((row.created * 1000) >= task['scrape-start']);
+					return Boolean((row.updated * 1000) >= task['scrape-start']);
 				}, function (error, row) {
 					if (error) {
 						return Promises.reject (error);
