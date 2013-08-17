@@ -418,8 +418,8 @@ function preNormalize (entry, type) {
 				birth_date = null;
 
 			if (birth.day && birth.month && birth.year) {
-				birth = null;
 				birth_date = moment(new Date(birth.year, birth.month, birth.day)).unix() * 1000;
+				birth = null;
 			}
 
 			if (avatar == 'http://vk.com/images/deactivated_c.gif' || avatar == 'https://vk.com/images/camera_c.gif') {
