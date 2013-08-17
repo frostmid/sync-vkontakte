@@ -230,7 +230,7 @@ function getPM (vk, out, filter, callback) {
 };
 
 function urlResolve (vk, url) {
-	if (url.match(/vk.com\/id(\d+)$/) || url.match(/vk.com\/club(\d+)$/) || url.match(/vk.com\/wall/) || url.match(/vk.com\/topic/)) {
+	if (url.match (/vk.com\/id(\d+)$/) || url.match (/vk.com\/club(\d+)$/) || url.match (/vk.com\/wall/) || url.match (/vk.com\/topic/) || url.match (/vk.com\/board/)) {
 		return Promises.fulfill (url);
 	} else if (tmp = url.match(/vk.com\/(public|event)(\d+)$/)) {
 		url = 'http://vk.com/club' + tmp [2];
@@ -305,6 +305,12 @@ function resolveAttachments (entry) {
 
 function normalize (entry, type, vk) {
 	var data = preNormalize (entry, type);
+
+	/*
+	if (data.content) {
+		data.content = data.content.replace(/(\[(.+)\|(.+)\])/, '<a href="http://vk.com/$2">$3</a>');
+	} 
+	*/
 
 	if(type == 'profile' && data.city && data.city != 0) {
 		return getCityById (vk, data.city, function (error, result) {
@@ -402,8 +408,19 @@ function preNormalize (entry, type) {
 			};
 
 		case 'profile':
-			var avatar = entry.photo_50;
-				birthdate = entry.bdate ? entry.bdate.match(/(\d+)\.(\d+)(\.|)(\d+|)/) : null;
+			var avatar = entry.photo_50,
+				tmp = entry.bdate ? entry.bdate.match(/(\d+)\.(\d+)(\.|)(\d+|)/) : null,
+				birth = {
+					'day': (tmp && tmp [1]) ? tmp [1] : null,
+					'month': (tmp && tmp [2]) ? tmp [2] : null,
+					'year': (tmp && tmp [4]) ? tmp [4] : null
+				},
+				birth_date = null;
+
+			if (birth.day && birth.month && birth.year) {
+				birth = null;
+				birth_date = moment(new Date(birth.year, birth.month, birth.day)).unix() * 1000;
+			}
 
 			if (avatar == 'http://vk.com/images/deactivated_c.gif' || avatar == 'https://vk.com/images/camera_c.gif') {
 				avatar = null;
@@ -417,11 +434,8 @@ function preNormalize (entry, type) {
 				'nickname': entry.nickname,
 				'avatar': avatar,
 				'metrics': entry.counters,
-				'birth': {
-					'day': (birthdate && birthdate [1]) ? birthdate [1] : null,
-					'month': (birthdate && birthdate [2]) ? birthdate [2] : null,
-					'year': (birthdate && birthdate [4]) ? birthdate [4] : null
-				},
+				'birth': entry.bdate ? birth : null,
+				'birth-date': entry.bdate ? birth_date : null,
 				'phone': entry.has_mobile ? entry.mobile_phone : null,
 				'city': entry.city
 			};
@@ -503,7 +517,7 @@ function preNormalize (entry, type) {
 	}
 };
 
-function getComments(vk, emit, object, type) {
+function getComments(vk, emit, object, type, scrape_start) {
 	var params = {need_likes: 1, count: 100},
 		method = '';
 
@@ -513,6 +527,7 @@ function getComments(vk, emit, object, type) {
 			method = 'board.getComments';
 			params.group_id = object.group_id;
 			params.topic_id = object.id;
+			params.sort = 'desc';
 			break;
 
 		case 'wall_post':
@@ -528,8 +543,13 @@ function getComments(vk, emit, object, type) {
 
 	}
 
+
 	return iterate (vk, method, params, function (row) {
-		return true;
+		if(type == 'topic_post' && scrape_start) {
+			return Boolean((row.date * 1000) >= scrape_start);
+		} else {
+			return true;
+		}
 	}, function (error, row) {
 		if (error) {
 			return Promises.reject (error);
@@ -556,7 +576,7 @@ function getComments(vk, emit, object, type) {
 
 
 function getTopics (vk, group_id, topic_id, filter, callback) {
-	return iterate (vk, 'board.getTopics', {group_id: group_id, topic_ids: topic_id, order: 2}, filter, callback);
+	return iterate (vk, 'board.getTopics', {group_id: group_id, topic_ids: topic_id, order: 1}, filter, callback);
 };
 
 
@@ -579,23 +599,29 @@ function restart () {
 	.use ('urn:fos:sync:feature/29e5fa0b4e79c2412525bcdc576a92a2', function resolveToken (task) {
 		var token = task._prefetch.token,
 			emit = this.emitter (task),
+			promise = Promises.promise(),
 			vk = getVKontakte (token);
 		
-		return getUserInfo (vk, null, function (error, result) {
+		getUserInfo (vk, null, function (error, result) {
 			if (error) {
-				return Promises.reject (error);
+				return promise.reject (error);
 			}
 
 			if (result.deactivated) {
-				return Promises.reject ('User deactivated');	
+				return promise.reject ('User deactivated');	
 			}
 
 			return normalize (result, 'profile', vk).then(function (entry) {
 				entry.tokens = [token._id];
 
-				return emit (entry);
+				Promises.when (emit (entry))
+					.then (_.bind (promise.fulfill, promise))
+					.fail (_.bind (promise.reject, promise))
+					.done ();
 			});
 		});
+
+		return promise;
 	})
 
 	.use ('urn:fos:sync:feature/e9b93bf34cc142491627dd19c99b9f44', function getWall (task) {
@@ -649,6 +675,8 @@ function restart () {
 			.then (function (task_url) {
 				if (tmp = task_url.match (/\/club(\d+)/)) {
 					group_id = tmp [1];
+				} else if (tmp = task_url.match (/\/board(\d+)/)) {
+					group_id = tmp [1];
 				} else if (tmp = task_url.match (/\/topic-(\d+)/)) {
 					group_id = tmp [1];
 				}
@@ -671,7 +699,7 @@ function restart () {
 						return normalize (row, 'topic', vk).then(function (entry) {
 							return Promises.all ([
 								emit (entry),
-								getComments (vk, emit, row, 'topic_post')
+								getComments (vk, emit, row, 'topic_post', task['scrape-start'])
 							])
 							.fail (function (error) {
 								return emit (new Error (error.error_msg));
