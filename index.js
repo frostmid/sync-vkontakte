@@ -612,9 +612,11 @@ function restart () {
 			}
 
 			return normalize (result, 'profile', vk).then(function (entry) {
-				entry.tokens = [token._id];
-
-				Promises.when (emit (entry))
+				Promises.when (entry)
+					.then (function (entry) {
+						entry.tokens = [token._id];
+						return emit (entry);
+					})
 					.then (_.bind (promise.fulfill, promise))
 					.fail (_.bind (promise.reject, promise))
 					.done ();
