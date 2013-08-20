@@ -236,22 +236,23 @@ function urlResolve (vk, url) {
 		url = 'http://vk.com/club' + tmp [2];
 		return Promises.fulfill (url);
 	} else if (tmp = url.match(/vk.com\/(.+)/)) {
-		return getGroupInfo (vk, tmp [1], function (error, result) {
+		var promise = Promises.promise ();
+
+		getGroupInfo (vk, tmp [1], function (error, result) {
 			if (error) {
 				return getUserInfo (vk, tmp [1], function (error, result) {
 					if (error) {
-						return Promises.reject ('Url resolving error');
+						promise.reject ('Url resolving error');
 					} else {
-						url = 'http://vk.com/id' + tmp [1];
+						promise.fulfill ('http://vk.com/id' + tmp [1]);
 					}
-
-					return Promises.fulfill (url);
 				});
 			} else {
-				url = 'http://vk.com/club' + tmp [1];
-				return Promises.fulfill (url);
+				promise.fulfill ('http://vk.com/club' + tmp [1]);
 			}
 		});
+
+		return promise;
 	}
 };
 
