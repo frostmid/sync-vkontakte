@@ -77,6 +77,7 @@ function iterate (vk, method, params, filter, callback) {
 
 	params.offset = params.offset || 0;
 	params.limit = params.limit || 100;
+	params.count = params.limit;
 
 
 	function finish () {
@@ -128,7 +129,6 @@ function iterate (vk, method, params, filter, callback) {
 
 			if (!stop) {
 				params.offset += params.limit;
-
 				fetch ();
 			}
 		});
@@ -644,7 +644,7 @@ function restart () {
 				}
 
 				return iterate (vk, 'wall.get', {owner_id: owner_id}, function (row) {
-					return Boolean((row.date * 1000) >= task ['scrape-start']);
+					return (row.date * 1000) >= task ['scrape-start'];
 				}, function (error, row) {
 					if (error) {
 						return Promises.reject (error);
