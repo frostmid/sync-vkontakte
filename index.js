@@ -416,7 +416,16 @@ function preNormalize (entry, type) {
 					'month': (tmp && tmp [2]) ? tmp [2] : null,
 					'year': (tmp && tmp [4]) ? tmp [4] : null
 				},
-				birth_date = null;
+				birth_date = null,
+				gender = null;
+
+			if (data.sex == 1) {
+				gender = 'urn:gender/female';
+			}
+
+			if (data.sex == 2) {
+				gender = 'urn:gender/male';
+			}
 
 			if (birth.day && birth.month && birth.year) {
 				birth_date = moment(new Date(birth.year, birth.month, birth.day)).unix() * 1000;
@@ -438,7 +447,8 @@ function preNormalize (entry, type) {
 				'birth': entry.bdate ? birth : null,
 				'birth-date': entry.bdate ? birth_date : null,
 				'phone': entry.has_mobile ? entry.mobile_phone : null,
-				'city': entry.city
+				'city': entry.city,
+				'gender': gender
 			};
 
 		case 'group':
