@@ -76,7 +76,7 @@ function iterate (vk, method, params, filter, callback) {
 		promises = [];
 
 	params.offset = params.offset || 0;
-	params.limit = params.limit || 100;
+	params.limit = params.limit || 50;
 	params.count = params.limit;
 
 
@@ -226,7 +226,7 @@ function getGroupInfo (vk, group_id, callback) {
 };
 
 function getPM (vk, out, filter, callback) {
-	return iterate (vk, 'messages.get', {out: out, count: 100}, filter, callback);	
+	return iterate (vk, 'messages.get', {out: out, count: 50}, filter, callback);	
 };
 
 function urlResolve (vk, url) {
@@ -419,11 +419,11 @@ function preNormalize (entry, type) {
 				birth_date = null,
 				gender = null;
 
-			if (data.sex == 1) {
+			if (entry.sex == 1) {
 				gender = 'urn:gender/female';
 			}
 
-			if (data.sex == 2) {
+			if (entry.sex == 2) {
 				gender = 'urn:gender/male';
 			}
 
@@ -529,7 +529,7 @@ function preNormalize (entry, type) {
 };
 
 function getComments(vk, emit, object, type, scrape_start) {
-	var params = {need_likes: 1, count: 100},
+	var params = {need_likes: 1, count: 50},
 		method = '';
 
 	switch (type)
