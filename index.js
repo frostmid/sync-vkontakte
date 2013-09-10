@@ -619,7 +619,7 @@ function restart () {
 
 (new Slave ({
 	title: 'vkontakte api',
-	version: '0.0.1'
+	version: '0.0.2'
 }, {
 	restart: restart
 }))
@@ -842,6 +842,7 @@ function restart () {
 						}
 
 						var reply = {
+							ancestor: task_url,
 							author: task.author,
 							text: task.content,
 							date: parseInt(Date.now() / 1000)
