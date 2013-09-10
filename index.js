@@ -794,8 +794,6 @@ function restart () {
 	})
 
 	.use ('urn:fos:sync:feature/e242b98044c627d2009df1ad92775771', function reply (task) {
-console.log('11111111111111111111', task['reply-to']);
-
 		var token = task._prefetch.token,
 			emit = this.emitter (task),
 			vk = getVKontakte (token),
