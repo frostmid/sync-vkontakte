@@ -10,7 +10,8 @@ var Slave = require ('fos-sync-slave'),
 	moment = require('moment'),
 	cache = LRU ({
 		max: 1000
-	});
+	}),
+	url = process.argv [2] || 'http://127.0.0.1:8001';
 
 _.rateLimit = function(func, rate, async) {
 	var queue = [];
@@ -605,10 +606,6 @@ function getTopics (vk, group_id, topic_id, filter, callback) {
 	return iterate (vk, 'board.getTopics', {group_id: group_id, topic_ids: topic_id, order: 1}, filter, callback);
 };
 
-
-var url = 'http://siab.frossa.ru:8001';
-//var url = 'http://127.0.0.1:8001';
-//var url = 'http://192.168.104.254:8001';
 
 function restart () {
 	_.delay (function () {
