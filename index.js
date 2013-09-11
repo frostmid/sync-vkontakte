@@ -1,3 +1,5 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 var Slave = require ('fos-sync-slave'),
 	SocketIO = require ('socket.io-client'),
 	vkontakte = require ('vkontakte'),
