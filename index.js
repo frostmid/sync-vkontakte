@@ -108,7 +108,7 @@ function iterate (vk, method, params, filter, callback) {
 				rows = response.items,
 				total = response.count;
 
-			if (rows.length == 0) {
+			if (!rows || rows.length == 0) {
 				promises.push (null, []);
 				finish ();
 				return;
