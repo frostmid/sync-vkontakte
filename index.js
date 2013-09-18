@@ -351,10 +351,13 @@ function normalize (entry, type, vk) {
 		});
 
 	} else if (data.author && (group_id = (data.author).match (/http:\/\/vk.com\/club(\d+)/))) {
+		var groupUrl = group_id [0];
 
 		return getGroupContacts (vk, group_id [1], function (error, results) {
 			if (error) {
-				return Promises.reject (error);
+				console.warn (error, groupUrl, 'use group as author');
+				data.author = groupUrl;
+				return Promises.fulfill (data);
 			}
 
 			var contact = null;
@@ -946,7 +949,7 @@ function restart () {
 			vk = getVKontakte (token),
 			promise = Promises.promise(),
 			tmp;
-
+console.log ('explain', task.url);
 		urlResolve (vk, task.url)
 			.then (function (task_url) {
 
