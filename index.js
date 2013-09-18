@@ -332,6 +332,7 @@ function normalize (entry, type, vk) {
 
 	if (data.content) {
 		data.content = data.content.replace(/(\[id(\d+)(|:(.+))\|(.+)\])/, '[http://vk.com/id$2|$5]');
+		data.content = data.content.replace(/(\[club(\d+)(|:(.+))\|(.+)\])/, '[http://vk.com/club$2|$5]');
 	} 
 	
 	if(type == 'profile' && data.city && data.city != 0) {
