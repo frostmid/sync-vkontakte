@@ -463,7 +463,8 @@ function preNormalize (entry, type) {
 				'birth': entry.bdate ? birth : null,
 				'birth-date': entry.bdate ? birth_date : null,
 				'phone': entry.has_mobile ? entry.mobile_phone : null,
-				'city': entry.city
+				'city': entry.city,
+				'deactivated': entry.deactivated
 			};
 
 		case 'group':
@@ -949,7 +950,7 @@ function restart () {
 			vk = getVKontakte (token),
 			promise = Promises.promise(),
 			tmp;
-console.log ('explain', task.url);
+
 		urlResolve (vk, task.url)
 			.then (function (task_url) {
 
@@ -963,7 +964,8 @@ console.log ('explain', task.url);
 						}
 
 						if (result.deactivated) {
-							return promise.reject ('User deactivated');	
+							console.warn (task.url, 'user deactivated');
+							// return promise.reject ('User deactivated');	
 						}
 
 						return normalize (result, 'profile', vk)
