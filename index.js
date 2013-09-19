@@ -623,7 +623,8 @@ function restart () {
 
 (new Slave ({
 	title: 'vkontakte api',
-	version: '0.0.2'
+	version: '0.0.2',
+	'max-tasks': 10
 }, {
 	restart: restart
 }))
