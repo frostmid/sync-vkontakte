@@ -63,15 +63,12 @@ _.rateLimit = function(func, rate, async) {
 	};
 };
 
-var limitedRequest = _.rateLimit (request, API_RATE_WINDOW, true);
-
 var getVKontakte = function (token) {
 	var key = JSON.stringify (token),
 		api = cache.get (key);
 
 	if (!api) {
-		
-		
+		var limitedRequest = _.rateLimit (request, API_RATE_WINDOW, true);
 		api = vkontakte (limitedRequest, token.access_token);
 		cache.set (key, api);
 	}
