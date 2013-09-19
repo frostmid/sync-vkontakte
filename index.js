@@ -10,7 +10,7 @@ var Slave = require ('fos-sync-slave'),
 	LRU = require ('lru-cache'),
 	API_RATE_WINDOW = 1001,
 	request = require ('request').defaults ({
-		timeout: 334
+		timeout: 1000 * 60 * 5
 	}),
 	Url = require ('url'),
 	moment = require('moment'),
@@ -511,6 +511,7 @@ function preNormalize (entry, type) {
 		case 'wall': 
 			return {
 				'url': 'http://vk.com/wall' + entry.owner_id,
+				'author': author,
 				'entry-type': 'urn:fos:sync:entry-type/e242b98044c627d2009df1ad9267cff2',
 				'title': 'Стена'
 			};
