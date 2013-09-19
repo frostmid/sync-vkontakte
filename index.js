@@ -1,4 +1,6 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+require('http').globalAgent.maxSockets = 1;
+require('https').globalAgent.maxSockets = 1;
 
 var Slave = require ('fos-sync-slave'),
 	SocketIO = require ('socket.io-client'),
@@ -6,8 +8,10 @@ var Slave = require ('fos-sync-slave'),
 	_ = require ('lodash'),
 	Promises = require ('vow'),
 	LRU = require ('lru-cache'),
-	API_RATE_WINDOW = (1000 * 0.5) + 100,
-	request = require ('request'),
+	API_RATE_WINDOW = 1250,
+	request = require ('request').defaults ({
+		timeout: 1000 * 60 * 2
+	}),
 	Url = require ('url'),
 	moment = require('moment'),
 	cache = LRU ({
@@ -350,7 +354,7 @@ function normalize (entry, type, vk) {
 			return Promises.fulfill (data);
 		});
 
-	} else if (data.author && (group_id = (data.author).match (/http:\/\/vk.com\/club(\d+)/))) {
+	} else if (false && data.author && (group_id = (data.author).match (/http:\/\/vk.com\/club(\d+)/))) {
 		var groupUrl = group_id [0];
 
 		return getGroupContacts (vk, group_id [1], function (error, results) {
