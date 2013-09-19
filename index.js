@@ -10,7 +10,7 @@ var Slave = require ('fos-sync-slave'),
 	LRU = require ('lru-cache'),
 	API_RATE_WINDOW = 1001,
 	request = require ('request').defaults ({
-		timeout: 1000 * 60 * 2
+		timeout: 334
 	}),
 	Url = require ('url'),
 	moment = require('moment'),
