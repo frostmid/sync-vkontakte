@@ -8,7 +8,7 @@ var Slave = require ('fos-sync-slave'),
 	_ = require ('lodash'),
 	Promises = require ('vow'),
 	LRU = require ('lru-cache'),
-	API_RATE_WINDOW = 1250,
+	API_RATE_WINDOW = 501,
 	request = require ('request').defaults ({
 		timeout: 1000 * 60 * 2
 	}),
@@ -63,13 +63,14 @@ _.rateLimit = function(func, rate, async) {
 	};
 };
 
+var limitedRequest = _.rateLimit (request, API_RATE_WINDOW, true);
 
 var getVKontakte = function (token) {
 	var key = JSON.stringify (token),
 		api = cache.get (key);
 
 	if (!api) {
-		var limitedRequest = _.rateLimit (request, API_RATE_WINDOW, true);
+		
 		
 		api = vkontakte (limitedRequest, token.access_token);
 		cache.set (key, api);
