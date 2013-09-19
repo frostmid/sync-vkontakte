@@ -8,7 +8,7 @@ var Slave = require ('fos-sync-slave'),
 	_ = require ('lodash'),
 	Promises = require ('vow'),
 	LRU = require ('lru-cache'),
-	API_RATE_WINDOW = 501,
+	API_RATE_WINDOW = 1001,
 	request = require ('request').defaults ({
 		timeout: 1000 * 60 * 2
 	}),
