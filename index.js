@@ -17,7 +17,10 @@ var Slave = require ('fos-sync-slave'),
 	cache = LRU ({
 		max: 1000
 	}),
-	url = process.argv [2] || 'http://127.0.0.1:8001';
+	url = process.argv [2] || 
+		//'http://127.0.0.1:8001'
+		'http://192.168.104.254:8001'
+	;
 
 _.rateLimit = function(func, rate, async) {
 	var queue = [];
@@ -95,13 +98,18 @@ function iterate (vk, method, params, filter, callback) {
 	function fetch () {
 		return vk (method, params, function (error, response) {
 			if (error) {
+				if (error.error_code == 212)
+				{
+					return finish ();
+				}
+
 				return promise.reject(error)
 				//callback (error);
 			};
 
 			//console.log (response);
 
-			if(!response) {
+			if (!response) {
 				return promise.reject('Method ' + method + ' return null response');
 				//return callback ('Method ' + method + ' return null response');
 			}
@@ -287,7 +295,8 @@ function resolveAttachments (entry) {
 			photos: [],
 			video: [],
 			audio: [],
-			doc: []
+			doc: [],
+			link: []
 		};
 
 		for (var i in entry.attachments) {
@@ -310,6 +319,10 @@ function resolveAttachments (entry) {
 
 				case 'doc':
 					entry.attached.doc.push(attachment.doc.url);
+					break;
+
+				case 'link':
+					entry.attached.link.push(attachment.link.url);
 					break;
 
 				/*
