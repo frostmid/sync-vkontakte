@@ -764,7 +764,11 @@ function restart () {
 
 						return normalize (row, 'topic', vk).then(function (entry) {
 							return Promises.all ([
-								emit (entry),
+								(function (entry) {
+									if ((row.updated * 1000) >= task['scrape-start']) {
+										emit (entry);
+									}
+								}) (entry),
 								getComments (vk, emit, row, 'topic_post', task['scrape-start'])
 							])
 							/*.fail (function (error) {
