@@ -18,7 +18,7 @@ var Slave = require ('fos-sync-slave'),
 		max: 1000
 	}),
 	url = process.argv [2] || 
-		'http://127.0.0.1:8001'
+		'http://127.0.0.1:8001',
 		//'http://192.168.104.254:8001'
 	;
 
@@ -765,7 +765,7 @@ function restart () {
 						return normalize (row, 'topic', vk).then(function (entry) {
 							return Promises.all ([
 								(function (entry) {
-									if ((row.updated * 1000) >= task['scrape-start']) {
+									if ((row.created * 1000) >= task['scrape-start']) {
 										emit (entry);
 									}
 								}) (entry),
