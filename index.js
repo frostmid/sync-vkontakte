@@ -18,9 +18,7 @@ var Slave = require ('fos-sync-slave'),
 		max: 1000
 	}),
 	url = process.argv [2] || 
-		'http://127.0.0.1:8001',
-		//'http://192.168.104.254:8001'
-	;
+		'http://127.0.0.1:8001';
 
 _.rateLimit = function(func, rate, async) {
 	var queue = [];
